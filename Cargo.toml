@@ -1,0 +1,6 @@
+[package]
+name = "chip8ulater"
+version = "0.1.0"
+authors = ["Roger Andersen <hexjelly@hexjelly.com>"]
+
+[dependencies]
