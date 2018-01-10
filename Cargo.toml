@@ -4,3 +4,6 @@ version = "0.1.0"
 authors = ["Roger Andersen <hexjelly@hexjelly.com>"]
 
 [dependencies]
+byteorder = "1.2.1"
+minifb = "0.10.4"
+failure = "0.1.1"
