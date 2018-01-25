@@ -1,7 +1,10 @@
 [package]
-name = "chip8ulater"
+name = "chip8ulator"
 version = "0.1.0"
 authors = ["Roger Andersen <hexjelly@hexjelly.com>"]
+
+[lib]
+name = "chip8ulator"
 
 [dependencies]
 byteorder = "1.2.1"
