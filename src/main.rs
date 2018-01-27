@@ -1,33 +1,51 @@
 extern crate chip8ulator;
+
+#[macro_use]
+extern crate log;
 extern crate minifb;
+extern crate simplelog;
 
 use chip8ulator::Chip8;
-use minifb::{Key, Scale, Window, WindowOptions};
+use minifb::{Key, KeyRepeat, Scale, Window, WindowOptions};
+use simplelog::*;
+
+const PX_EMPTY: u32 = 0xff_6e_df_3f;
+const PX_FILLED: u32 = 0xff_ff_ff_ff;
 
 fn main() {
+    let _ = TermLogger::init(LogLevelFilter::Trace, Config::default());
+
     let mut chip8 = Chip8::new();
     chip8.load_rom("tests/assets/IBM Logo.ch8").unwrap();
-    loop {
-        println!("{:?}", chip8);
-        chip8.step().unwrap();
-    }
+    // loop {
+    //     debug!("{:?}", chip8);
+    //     chip8.step().unwrap();
+    // }
 
-    // let mut window = Window::new(
-    //     "chip8ulator",
-    //     64,
-    //     32,
-    //     WindowOptions {
-    //         scale: Scale::X8,
-    //         ..Default::default()
-    //     },
-    // ).unwrap_or_else(|e| {
-    //     panic!("{}", e);
-    // });
-    //
-    // while window.is_open() && !window.is_key_down(Key::Escape) {
-    // chip8.step().unwrap();
-    // if chip8.redraw {
-    //     window.update_with_buffer(&chip8.video_frame()).unwrap();
-    // }
-    // }
+    let mut window = Window::new(
+        "chip8ulator",
+        64,
+        32,
+        WindowOptions {
+            scale: Scale::X8,
+            ..Default::default()
+        },
+    ).unwrap_or_else(|e| {
+        panic!("{}", e);
+    });
+    debug!("{:?}", chip8);
+    while window.is_open() && !window.is_key_down(Key::Escape) {
+        if window.is_key_pressed(Key::N, KeyRepeat::No) {
+            chip8.step().unwrap();
+            debug!("{:?}", chip8);
+        }
+        // if chip8.redraw {
+        let buffer: Vec<u32> = chip8
+            .video_frame()
+            .iter()
+            .map(|px| if *px { PX_FILLED } else { PX_EMPTY })
+            .collect();
+        window.update_with_buffer(&buffer).unwrap();
+        // }
+    }
 }

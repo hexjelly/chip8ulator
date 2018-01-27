@@ -1,6 +1,8 @@
 extern crate byteorder;
 #[macro_use]
 extern crate failure;
+#[macro_use]
+extern crate log;
 
 mod audio;
 mod input;
@@ -18,8 +20,13 @@ type BE = BigEndian;
 
 use opcodes::*;
 
-const PX_EMPTY: u32 = 0xff_6e_df_3f;
-const PX_FILLED: u32 = 0xff_ff_ff_ff;
+const FONT_SET: [u8; 80] = [
+    0xf0, 0x90, 0x90, 0x90, 0xf0, 0x20, 0x60, 0x20, 0x20, 0x70, 0xf0, 0x10, 0xf0, 0x80, 0xf0, 0xf0,
+    0x10, 0xf0, 0x10, 0xf0, 0xa0, 0xa0, 0xf0, 0x20, 0x20, 0xf0, 0x80, 0xf0, 0x10, 0xf0, 0xf0, 0x80,
+    0xf0, 0x90, 0xf0, 0xf0, 0x10, 0x20, 0x40, 0x40, 0xf0, 0x90, 0xf0, 0x90, 0xf0, 0xf0, 0x90, 0xf0,
+    0x10, 0xf0, 0xf0, 0x90, 0xf0, 0x90, 0x90, 0xe0, 0x90, 0xe0, 0x90, 0xe0, 0xf0, 0x80, 0x80, 0x80,
+    0xf0, 0xe0, 0x90, 0x90, 0x90, 0xe0, 0xf0, 0x80, 0xf0, 0x80, 0xf0, 0xf0, 0x80, 0xf0, 0x80, 0x80,
+];
 
 #[derive(Debug, Fail, PartialEq)]
 pub enum Chip8Error {
@@ -41,8 +48,8 @@ pub struct Chip8 {
     stack: [u16; 16],
     sp: u8,
     mem: [u8; 4096],
-    video: [u32; (64 * 32) as usize],
-    redraw: bool,
+    video: [bool; (64 * 32)],
+    pub redraw: bool,
 }
 
 impl fmt::Debug for Chip8 {
@@ -61,8 +68,8 @@ impl Chip8 {
             pc: 0x200,
             stack: [0; 16],
             sp: 0,
-            mem: [0; 4096],
-            video: [PX_EMPTY; (64 * 32) as usize],
+            mem: new_mem(),
+            video: [false; (64 * 32)],
             redraw: false,
         }
     }
@@ -75,8 +82,8 @@ impl Chip8 {
         self.pc = 0x200;
         self.stack = [0; 16];
         self.sp = 0;
-        self.mem = [0; 4096];
-        self.video = [PX_EMPTY; (64 * 32) as usize];
+        self.mem = new_mem();
+        self.video = [false; (64 * 32)];
     }
 
     pub fn load_rom<P: AsRef<Path>>(&mut self, file: P) -> Result<(), Error> {
@@ -93,7 +100,7 @@ impl Chip8 {
         Ok(())
     }
 
-    pub fn video_frame(&self) -> &[u32] {
+    pub fn video_frame(&mut self) -> &[bool] {
         &self.video
     }
 
@@ -104,13 +111,70 @@ impl Chip8 {
         }
         let ins_bytes = &self.mem[pc..pc + 2];
         let ins = OpCode::from_instruction(BE::read_u16(ins_bytes));
-        println!("{:?}", ins);
-        match ins {
-            OpCode::CLS => self.redraw = true,
-        }
         self.pc += 2;
+        debug!("Executing instruction: {:?}", ins);
+        match ins {
+            OpCode::CLS => {
+                // Clear screen and set redraw flag to true
+                self.video = [false; (64 * 32) as usize];
+                self.redraw = true;
+            }
+            OpCode::RET => {
+                // Set PC to top stack address, and decrement SP
+                self.pc = self.stack[self.sp as usize];
+                self.sp -= 1;
+            }
+            OpCode::JP(addr) => {
+                // Set PC to address
+                self.pc = addr;
+            }
+            OpCode::LDI(addr) => {
+                // Set I register to address
+                self.reg_i = addr;
+            }
+            OpCode::LDV(reg, val) => {
+                // Load value into register
+                self.reg_gpr[reg] = val;
+            }
+            OpCode::DRW(x, y, bytes) => {
+                let x = self.reg_gpr[x] as usize;
+                let y = self.reg_gpr[y] as usize;
+                debug!("DRW from X = {}, Y = {}, {} bytes", x, y, bytes);
+                // for each line (byte) in sprite, check each bit (pixel)
+                for byte in 0..bytes {
+                    debug!("line {}", byte);
+                    let line = self.mem[self.reg_i as usize + byte];
+                    debug!("{:08b}", line);
+                    for bit in 0..8 {
+                        if line & (1 << bit) != 0 {
+                            let v_address = (x + bit) + (64 * (y + byte));
+                            debug!("VADDR: {}", v_address);
+                            self.reg_gpr[15] = if self.video[v_address] { 1 } else { 0 };
+                            self.video[v_address] ^= true;
+                        }
+                    }
+                }
+                self.redraw = true;
+            }
+            OpCode::ADD(reg, val) => {
+                // Add val to reg
+                self.reg_gpr[reg] += val;
+            }
+            _ => {
+                error!("Unimplemented handling of instruction: {:?}", ins);
+                panic!();
+            }
+        }
         Ok(())
     }
+}
+
+fn new_mem() -> [u8; 4096] {
+    let mut mem = [0; 4096];
+    for (n, byte) in FONT_SET.iter().enumerate() {
+        mem[n] = *byte;
+    }
+    mem
 }
 
 fn into_mem(bytes: &[u8]) -> Result<[u8; 4096], Chip8Error> {
@@ -118,7 +182,7 @@ fn into_mem(bytes: &[u8]) -> Result<[u8; 4096], Chip8Error> {
         return Err(Chip8Error::ROMTooLarge { size: bytes.len() });
     }
 
-    let mut buffer = [0_u8; 4096];
+    let mut buffer = new_mem();
 
     for (n, byte) in bytes.iter().enumerate() {
         buffer[n + 0x200] = *byte;
