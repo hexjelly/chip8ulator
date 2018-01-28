@@ -9,8 +9,8 @@ use chip8ulator::Chip8;
 use minifb::{Key, KeyRepeat, Scale, Window, WindowOptions};
 use simplelog::*;
 
-const PX_EMPTY: u32 = 0xff_6e_df_3f;
-const PX_FILLED: u32 = 0xff_ff_ff_ff;
+const PX_EMPTY: u32 = 0;
+const PX_FILLED: u32 = 0xff_6e_df_3f;
 
 fn main() {
     let _ = TermLogger::init(LogLevelFilter::Trace, Config::default());

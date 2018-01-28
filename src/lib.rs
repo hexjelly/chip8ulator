@@ -136,22 +136,29 @@ impl Chip8 {
                 // Load value into register
                 self.reg_gpr[reg] = val;
             }
-            OpCode::DRW(x, y, bytes) => {
+            OpCode::DRW(x, y, rows) => {
                 let x = self.reg_gpr[x] as usize;
                 let y = self.reg_gpr[y] as usize;
-                debug!("DRW from X = {}, Y = {}, {} bytes", x, y, bytes);
+                debug!("DRW from X = {}, Y = {}, {} rows", x, y, rows);
                 // for each line (byte) in sprite, check each bit (pixel)
-                for byte in 0..bytes {
-                    debug!("line {}", byte);
-                    let line = self.mem[self.reg_i as usize + byte];
-                    debug!("{:08b}", line);
-                    for bit in 0..8 {
-                        if line & (1 << bit) != 0 {
-                            let v_address = (x + bit) + (64 * (y + byte));
-                            debug!("VADDR: {}", v_address);
-                            self.reg_gpr[15] = if self.video[v_address] { 1 } else { 0 };
-                            self.video[v_address] ^= true;
+                for row in 0..rows {
+                    let line = self.mem[self.reg_i as usize + row];
+                    debug!("line {}: {:08b}", row, line);
+                    for (n, bit) in (0..8).rev().enumerate() {
+                        let mut x = x + n;
+                        if x > 64 {
+                            x -= 64;
                         }
+                        let value = line & (1 << bit) != 0;
+                        let v_address = x + (64 * (y + row));
+                        debug!("VADDR: {}", v_address);
+                        self.reg_gpr[15] = if self.video[v_address] != self.video[v_address] ^ value
+                        {
+                            1
+                        } else {
+                            0
+                        };
+                        self.video[v_address] ^= value;
                     }
                 }
                 self.redraw = true;
