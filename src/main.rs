@@ -13,10 +13,10 @@ const PX_EMPTY: u32 = 0;
 const PX_FILLED: u32 = 0xff_6e_df_3f;
 
 fn main() {
-    let _ = TermLogger::init(LogLevelFilter::Trace, Config::default());
+    let _ = TermLogger::init(LevelFilter::Trace, Config::default());
 
     let mut chip8 = Chip8::new();
-    chip8.load_rom("tests/assets/IBM Logo.ch8").unwrap();
+    chip8.load_rom("tests/assets/HIDDEN.ch8").unwrap();
     // loop {
     //     debug!("{:?}", chip8);
     //     chip8.step().unwrap();
@@ -30,10 +30,10 @@ fn main() {
             scale: Scale::X8,
             ..Default::default()
         },
-    ).unwrap_or_else(|e| {
-        panic!("{}", e);
-    });
+    ).expect("Could not create window");
+
     debug!("{:?}", chip8);
+
     while window.is_open() && !window.is_key_down(Key::Escape) {
         if window.is_key_pressed(Key::N, KeyRepeat::No) {
             chip8.step().unwrap();

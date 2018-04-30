@@ -1,50 +1,40 @@
-/// 00E0 Clear the display
-pub const CLS: u16 = 0b0000_0000_1110_0000;
-/// 00EE Return from subroutine
-pub const RET: u16 = 0b0000_0000_1110_1110;
-/// 1nnn Jump to address nnn
-pub const JP: u16 = 0b0001;
-/// Annn Load address into I register
-pub const LDI: u16 = 0b1010;
-/// 6xkk Set value kk into register x
-pub const LDV: u16 = 0b0110;
-/// Dxyn Display n-byte sprite from memory I at Vx, Vy
-/// XOR with current display; set VF 1 on collision, otherwise 0. Wraps
-pub const DRW: u16 = 0b1101;
-/// 7xkk Add kk to Vx
-pub const ADD: u16 = 0b0111;
-
 #[derive(Debug)]
 pub enum OpCode {
     CLS,
     RET,
     JP(u16),
+    /// Load address into I register
     LDI(u16),
+    /// Set value kk into register x
     LDV(usize, u8),
+    /// Dxyn Display n-byte sprite from memory I at Vx, Vy
+    /// XOR with current display; set VF 1 on collision, otherwise 0. Wraps
     DRW(usize, usize, usize),
+    /// 7xkk Add kk to Vx
     ADD(usize, u8),
+    /// Fx55 Store registers V0 through Vx in memory starting at location I.
+    LDIREGS(usize),
 }
 
 impl OpCode {
     pub fn from_instruction(ins: u16) -> OpCode {
         match ins >> 12 {
-            JP => OpCode::JP(ins & 0xfff),
-            LDI => OpCode::LDI(ins & 0xfff),
-            LDV => OpCode::LDV(((ins >> 8) & 0xf) as usize, (ins & 0xff) as u8),
-            DRW => OpCode::DRW(
+            0x0 if ins & 0xff == 0xe0 => OpCode::CLS,
+            0x0 if ins & 0xff == 0xee => OpCode::RET,
+            0x1 => OpCode::JP(ins & 0xfff),
+            0xa => OpCode::LDI(ins & 0xfff),
+            0x6 => OpCode::LDV(((ins >> 8) & 0xf) as usize, (ins & 0xff) as u8),
+            0xd => OpCode::DRW(
                 ((ins >> 8) & 0xf) as usize,
                 ((ins >> 4) & 0xf) as usize,
                 (ins & 0xf) as usize,
             ),
-            ADD => OpCode::ADD(((ins >> 8) & 0xf) as usize, (ins & 0xff) as u8),
-            _ => match ins {
-                CLS => OpCode::CLS,
-                RET => OpCode::RET,
-                _ => {
-                    error!("Unimplemented instruction: {:x}", ins);
-                    panic!();
-                }
-            },
+            0x7 => OpCode::ADD(((ins >> 8) & 0xf) as usize, (ins & 0xff) as u8),
+            0xf if ins & 0xff == 0x55 => OpCode::LDIREGS(((ins >> 8) & 0xff) as usize),
+            _ => {
+                error!("Unimplemented instruction: {:x}", ins);
+                panic!();
+            }
         }
     }
 }
