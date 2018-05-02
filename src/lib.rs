@@ -28,6 +28,26 @@ const FONT_SET: [u8; 80] = [
     0xf0, 0xe0, 0x90, 0x90, 0x90, 0xe0, 0xf0, 0x80, 0xf0, 0x80, 0xf0, 0xf0, 0x80, 0xf0, 0x80, 0x80,
 ];
 
+#[derive(Debug, Copy, Clone)]
+pub enum Key {
+    Key0 = 0x0,
+    Key1 = 0x1,
+    Key2 = 0x2,
+    Key3 = 0x3,
+    Key4 = 0x4,
+    Key5 = 0x5,
+    Key6 = 0x6,
+    Key7 = 0x7,
+    Key8 = 0x8,
+    Key9 = 0x9,
+    KeyA = 0xA,
+    KeyB = 0xB,
+    KeyC = 0xC,
+    KeyD = 0xD,
+    KeyE = 0xE,
+    KeyF = 0xF,
+}
+
 #[derive(Debug, Fail, PartialEq)]
 pub enum Chip8Error {
     #[fail(display = "ROM is too large: {}", size)]
@@ -47,6 +67,8 @@ pub struct Chip8 {
     mem: [u8; 4096],
     video: [bool; (64 * 32)],
     pub redraw: bool,
+    key_waiting: bool,
+    key_reg: usize,
 }
 
 impl fmt::Debug for Chip8 {
@@ -68,6 +90,8 @@ impl Chip8 {
             mem: new_mem(),
             video: [false; (64 * 32)],
             redraw: false,
+            key_waiting: false,
+            key_reg: 0,
         }
     }
 
@@ -81,6 +105,9 @@ impl Chip8 {
         self.sp = 0;
         self.mem = new_mem();
         self.video = [false; (64 * 32)];
+        self.redraw = false;
+        self.key_waiting = false;
+        self.key_reg = 0;
     }
 
     pub fn load_rom<P: AsRef<Path>>(&mut self, file: P) -> Result<(), Error> {
@@ -101,7 +128,20 @@ impl Chip8 {
         &self.video
     }
 
+    pub fn key(&mut self, key: &Key) {
+        debug!("Got keypress: {:?}", key);
+        if self.key_waiting {
+            self.reg_gpr[self.key_reg] = *key as u8;
+            self.key_waiting = false;
+            debug!("Set reg[{:?}] to: {:?}", self.key_reg, *key as u8);
+        }
+    }
+
     pub fn step(&mut self) -> Result<(), Chip8Error> {
+        if self.key_waiting {
+            debug!("Waiting for keypress...");
+            return Ok(());
+        }
         let pc = self.pc as usize;
         if self.mem.len() < pc {
             return Err(Chip8Error::MemOOB { address: pc });
@@ -172,6 +212,20 @@ impl Chip8 {
                 for i in 0..regs {
                     self.mem[self.reg_i as usize + i] = self.reg_gpr[i];
                 }
+            }
+            OpCode::ADDI(reg) => {
+                // Set I = I + Vx.
+                self.reg_i += self.reg_gpr[reg] as u16;
+            }
+            OpCode::SE(reg, val) => {
+                // Skip next instruction if Vx = kk.
+                if self.reg_gpr[reg] == val {
+                    self.pc += 2;
+                }
+            }
+            OpCode::LDK(reg) => {
+                self.key_waiting = true;
+                self.key_reg = reg;
             }
             _ => {
                 error!("Unimplemented handling of instruction: {:?}", ins);

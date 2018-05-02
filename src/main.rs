@@ -7,8 +7,8 @@ extern crate simplelog;
 #[macro_use]
 extern crate structopt;
 
-use chip8ulator::Chip8;
-use minifb::{Key, KeyRepeat, Scale, Window, WindowOptions};
+use chip8ulator::{Chip8, Key};
+use minifb::{Key as mfbKey, KeyRepeat, Scale, Window, WindowOptions};
 use simplelog::*;
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -60,10 +60,13 @@ fn main() {
         let mut buffer: [u32; 64 * 32] = [PX_EMPTY; 64 * 32];
         window.update_with_buffer(&buffer).unwrap();
 
-        while window.is_open() && !window.is_key_down(Key::Escape) {
-            if window.is_key_pressed(Key::N, KeyRepeat::No) {
-                chip8.step().unwrap();
+        while window.is_open() && !window.is_key_down(mfbKey::Escape) {
+            if window.is_key_pressed(mfbKey::A, KeyRepeat::Yes) {
+                chip8.key(&Key::KeyA);
+            }
+            if window.is_key_pressed(mfbKey::N, KeyRepeat::Yes) {
                 debug!("{:?}", chip8);
+                chip8.step().unwrap();
             }
             if chip8.redraw {
                 for (i, px) in chip8
