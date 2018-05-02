@@ -30,13 +30,10 @@ const FONT_SET: [u8; 80] = [
 
 #[derive(Debug, Fail, PartialEq)]
 pub enum Chip8Error {
-    #[fail(display = "ROM is too large: {}", size)] ROMTooLarge {
-        size: usize,
-    },
+    #[fail(display = "ROM is too large: {}", size)]
+    ROMTooLarge { size: usize },
     #[fail(display = "Attempt to read out of bounds memory: {}", address)]
-    MemOOB {
-        address: usize,
-    },
+    MemOOB { address: usize },
 }
 
 pub struct Chip8 {
@@ -109,8 +106,11 @@ impl Chip8 {
         if self.mem.len() < pc {
             return Err(Chip8Error::MemOOB { address: pc });
         }
-        let ins_bytes = &self.mem[pc..pc + 2];
-        let ins = OpCode::from_instruction(BE::read_u16(ins_bytes));
+        let ins;
+        {
+            let ins_bytes = &self.mem[pc..pc + 2];
+            ins = OpCode::from_instruction(BE::read_u16(ins_bytes));
+        }
         self.pc += 2;
         debug!("Executing instruction: {:?}", ins);
         match ins {
@@ -151,7 +151,7 @@ impl Chip8 {
                         }
                         let value = line & (1 << bit) != 0;
                         let v_address = x + (64 * (y + row));
-                        debug!("VADDR: {}", v_address);
+
                         self.reg_gpr[15] = if self.video[v_address] != self.video[v_address] ^ value
                         {
                             1
@@ -166,6 +166,12 @@ impl Chip8 {
             OpCode::ADD(reg, val) => {
                 // Add val to reg
                 self.reg_gpr[reg] += val;
+            }
+            OpCode::LDIREGS(regs) => {
+                // Store registers V0 through Vx in memory starting at location I
+                for i in 0..regs {
+                    self.mem[self.reg_i as usize + i] = self.reg_gpr[i];
+                }
             }
             _ => {
                 error!("Unimplemented handling of instruction: {:?}", ins);

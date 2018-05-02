@@ -30,7 +30,7 @@ impl OpCode {
                 (ins & 0xf) as usize,
             ),
             0x7 => OpCode::ADD(((ins >> 8) & 0xf) as usize, (ins & 0xff) as u8),
-            0xf if ins & 0xff == 0x55 => OpCode::LDIREGS(((ins >> 8) & 0xff) as usize),
+            0xf if ins & 0xff == 0x55 => OpCode::LDIREGS(((ins >> 8) & 0xf) as usize),
             _ => {
                 error!("Unimplemented instruction: {:x}", ins);
                 panic!();
