@@ -57,7 +57,7 @@ pub enum Chip8Error {
 }
 
 pub struct Chip8 {
-    reg_gpr: [u8; 16],
+    reg_v: [u8; 16],
     reg_i: u16,
     reg_timer_audio: u8,
     reg_timer_delay: u8,
@@ -80,7 +80,7 @@ impl fmt::Debug for Chip8 {
 impl Chip8 {
     pub fn new() -> Self {
         Chip8 {
-            reg_gpr: [0; 16],
+            reg_v: [0; 16],
             reg_i: 0,
             reg_timer_audio: 0,
             reg_timer_delay: 0,
@@ -96,7 +96,7 @@ impl Chip8 {
     }
 
     pub fn reset(&mut self) {
-        self.reg_gpr = [0; 16];
+        self.reg_v = [0; 16];
         self.reg_i = 0;
         self.reg_timer_audio = 0;
         self.reg_timer_delay = 0;
@@ -131,7 +131,7 @@ impl Chip8 {
     pub fn key(&mut self, key: &Key) {
         debug!("Got keypress: {:?}", key);
         if self.key_waiting {
-            self.reg_gpr[self.key_reg] = *key as u8;
+            self.reg_v[self.key_reg] = *key as u8;
             self.key_waiting = false;
             debug!("Set reg[{:?}] to: {:?}", self.key_reg, *key as u8);
         }
@@ -174,11 +174,11 @@ impl Chip8 {
             }
             OpCode::LDV(reg, val) => {
                 // Load value into register
-                self.reg_gpr[reg] = val;
+                self.reg_v[reg] = val;
             }
             OpCode::DRW(x, y, rows) => {
-                let x = self.reg_gpr[x] as usize;
-                let y = self.reg_gpr[y] as usize;
+                let x = self.reg_v[x] as usize;
+                let y = self.reg_v[y] as usize;
                 debug!("DRW from X = {}, Y = {}, {} rows", x, y, rows);
                 // for each line (byte) in sprite, check each bit (pixel)
                 for row in 0..rows {
@@ -192,8 +192,7 @@ impl Chip8 {
                         let value = line & (1 << bit) != 0;
                         let v_address = x + (64 * (y + row));
 
-                        self.reg_gpr[15] = if self.video[v_address] != self.video[v_address] ^ value
-                        {
+                        self.reg_v[15] = if self.video[v_address] != self.video[v_address] ^ value {
                             1
                         } else {
                             0
@@ -205,21 +204,21 @@ impl Chip8 {
             }
             OpCode::ADD(reg, val) => {
                 // Add val to reg
-                self.reg_gpr[reg] += val;
+                self.reg_v[reg] += val;
             }
             OpCode::LDIREGS(regs) => {
                 // Store registers V0 through Vx in memory starting at location I
                 for i in 0..regs {
-                    self.mem[self.reg_i as usize + i] = self.reg_gpr[i];
+                    self.mem[self.reg_i as usize + i] = self.reg_v[i];
                 }
             }
             OpCode::ADDI(reg) => {
                 // Set I = I + Vx.
-                self.reg_i += self.reg_gpr[reg] as u16;
+                self.reg_i += self.reg_v[reg] as u16;
             }
             OpCode::SE(reg, val) => {
                 // Skip next instruction if Vx = kk.
-                if self.reg_gpr[reg] == val {
+                if self.reg_v[reg] == val {
                     self.pc += 2;
                 }
             }
