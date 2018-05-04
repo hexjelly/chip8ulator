@@ -3,6 +3,7 @@ extern crate byteorder;
 extern crate failure;
 #[macro_use]
 extern crate log;
+extern crate rand;
 
 mod audio;
 mod input;
@@ -63,7 +64,7 @@ pub struct Chip8 {
     reg_timer_delay: u8,
     pc: u16,
     stack: [u16; 16],
-    sp: u8,
+    sp: usize,
     mem: [u8; 4096],
     video: [bool; (64 * 32)],
     pub redraw: bool,
@@ -204,12 +205,19 @@ impl Chip8 {
             }
             OpCode::ADD(reg, val) => {
                 // Add val to reg
-                self.reg_v[reg] += val;
+                self.reg_v[reg] = self.reg_v[reg].wrapping_add(val);
             }
-            OpCode::LDIREGS(regs) => {
+            OpCode::LDIV(regs) => {
                 // Store registers V0 through Vx in memory starting at location I
-                for i in 0..regs {
+                for i in 0..regs + 1 {
                     self.mem[self.reg_i as usize + i] = self.reg_v[i];
+                }
+            }
+            OpCode::LDVI(regs) => {
+                // Read registers V0 through Vx from memory starting at location I
+                for i in 0..regs + 1 {
+                    self.reg_v[i] = self.mem[self.reg_i as usize + i];
+                    debug!("Setting V{}: {}", i, self.mem[self.reg_i as usize + i]);
                 }
             }
             OpCode::ADDI(reg) => {
@@ -225,6 +233,21 @@ impl Chip8 {
             OpCode::LDK(reg) => {
                 self.key_waiting = true;
                 self.key_reg = reg;
+            }
+            OpCode::RND(reg, val) => {
+                // Set Vx = random byte AND val.
+                let rng = rand::random::<u8>();
+                self.reg_v[reg] = rng & val;
+            }
+            OpCode::LDVV(reg_x, reg_y) => {
+                // Set Vx = Vy.
+                self.reg_v[reg_x] = self.reg_v[reg_y];
+            }
+            OpCode::CALL(addr) => {
+                // The interpreter increments the stack pointer, then puts the current PC on the top of the stack. The PC is then set to nnn.
+                self.sp += 1;
+                self.stack[self.sp] = self.pc;
+                self.pc = addr as u16;
             }
             _ => {
                 error!("Unimplemented handling of instruction: {:?}", ins);
