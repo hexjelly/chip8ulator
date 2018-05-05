@@ -38,6 +38,16 @@ pub enum OpCode {
     ADDXY(usize, usize),
     /// 8xy5 Set Vx = Vx - Vy, set VF = NOT borrow.
     SUBXY(usize, usize),
+    /// 8xy7 Set Vx = Vy - Vx, set VF = NOT borrow.
+    SUBN(usize, usize),
+    /// 8xy6 Set Vx = Vx SHR 1.
+    SHR(usize),
+    /// 8xyE Set Vx = Vx SHL 1.
+    SHL(usize),
+    /// 8xy3 Set Vx = Vx XOR Vy.
+    XOR(usize, usize),
+    /// Fx15 Set delay timer = Vx.
+    LDDT(usize),
 }
 
 impl OpCode {
@@ -64,14 +74,19 @@ impl OpCode {
             0x7 => OpCode::ADD(((ins >> 8) & 0xf) as usize, (ins & 0xff) as u8),
             0x8 => match ins & 0xf {
                 0x0 => OpCode::LDVV(((ins >> 8) & 0xf) as usize, ((ins >> 4) & 0xf) as usize),
+                0x3 => OpCode::XOR(((ins >> 8) & 0xf) as usize, ((ins >> 4) & 0xf) as usize),
                 0x4 => OpCode::ADDXY(((ins >> 8) & 0xf) as usize, ((ins >> 4) & 0xf) as usize),
                 0x5 => OpCode::SUBXY(((ins >> 8) & 0xf) as usize, ((ins >> 4) & 0xf) as usize),
+                0x6 => OpCode::SHR(((ins >> 8) & 0xf) as usize),
+                0x7 => OpCode::SUBN(((ins >> 8) & 0xf) as usize, ((ins >> 4) & 0xf) as usize),
+                0xe => OpCode::SHL(((ins >> 8) & 0xf) as usize),
                 _ => {
                     error!("Unimplemented instruction: {:x}", ins);
                     panic!();
                 }
             },
             0xf => match ins & 0xff {
+                0x15 => OpCode::LDDT(((ins >> 8) & 0xf) as usize),
                 0x29 => OpCode::LDF(((ins >> 8) & 0xf) as usize),
                 0x33 => OpCode::LDB(((ins >> 8) & 0xf) as usize),
                 0x55 => OpCode::LDIV(((ins >> 8) & 0xf) as usize),

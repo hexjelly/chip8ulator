@@ -281,6 +281,31 @@ impl Chip8 {
                 };
                 self.reg_v[reg_x] = self.reg_v[reg_x].wrapping_sub(self.reg_v[reg_y]);
             }
+            OpCode::SUBN(reg_x, reg_y) => {
+                // If Vy > Vx, then VF is set to 1, otherwise 0. Then Vx is subtracted from Vy, and the results stored in Vx.
+                self.reg_v[15] = if self.reg_v[reg_y] >= self.reg_v[reg_x] {
+                    1
+                } else {
+                    0
+                };
+                self.reg_v[reg_x] = self.reg_v[reg_y].wrapping_sub(self.reg_v[reg_x]);
+            }
+            OpCode::SHR(reg) => {
+                // If the least-significant bit of Vx is 1, then VF is set to 1, otherwise 0. Then Vx is divided by 2.
+                self.reg_v[15] = self.reg_v[reg] & 1;
+                self.reg_v[reg] >>= 1;
+            }
+            OpCode::SHL(reg) => {
+                // If the most-significant bit of Vx is 1, then VF is set to 1, otherwise to 0. Then Vx is multiplied by 2.
+                self.reg_v[15] = (self.reg_v[reg] & 0b1000_0000) >> 7;
+                self.reg_v[reg] <<= 1;
+            }
+            OpCode::XOR(reg_x, reg_y) => {
+                self.reg_v[reg_x] ^= self.reg_v[reg_y];
+            }
+            OpCode::LDDT(reg) => {
+                self.reg_timer_delay = self.reg_v[reg];
+            }
             _ => {
                 error!("Unimplemented handling of instruction: {:?}", ins);
                 panic!();
