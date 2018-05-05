@@ -28,6 +28,16 @@ pub enum OpCode {
     LDVV(usize, usize),
     /// 2nnn Call subroutine at nnn.
     CALL(usize),
+    /// Fx29 Set I = location of sprite for digit Vx.
+    LDF(usize),
+    /// 4xkk Skip next instruction if Vx != kk.
+    SNE(usize, u8),
+    /// Fx33 Store BCD representation of Vx in memory locations I, I+1, and I+2.
+    LDB(usize),
+    /// 8xy4 Set Vx = Vx + Vy, set VF = carry.
+    ADDXY(usize, usize),
+    /// 8xy5 Set Vx = Vx - Vy, set VF = NOT borrow.
+    SUBXY(usize, usize),
 }
 
 impl OpCode {
@@ -36,10 +46,14 @@ impl OpCode {
             0x0 => match ins & 0xff {
                 0xe0 => OpCode::CLS,
                 0xee => OpCode::RET,
-                _ => unreachable!(),
+                _ => {
+                    error!("Unimplemented instruction: {:x}", ins);
+                    panic!();
+                }
             },
             0x1 => OpCode::JP(ins & 0xfff),
             0x2 => OpCode::CALL((ins & 0xfff) as usize),
+            0x4 => OpCode::SNE(((ins >> 8) & 0xf) as usize, (ins & 0xff) as u8),
             0xa => OpCode::LDI(ins & 0xfff),
             0x6 => OpCode::LDV(((ins >> 8) & 0xf) as usize, (ins & 0xff) as u8),
             0xd => OpCode::DRW(
@@ -50,14 +64,24 @@ impl OpCode {
             0x7 => OpCode::ADD(((ins >> 8) & 0xf) as usize, (ins & 0xff) as u8),
             0x8 => match ins & 0xf {
                 0x0 => OpCode::LDVV(((ins >> 8) & 0xf) as usize, ((ins >> 4) & 0xf) as usize),
-                _ => unreachable!(),
+                0x4 => OpCode::ADDXY(((ins >> 8) & 0xf) as usize, ((ins >> 4) & 0xf) as usize),
+                0x5 => OpCode::SUBXY(((ins >> 8) & 0xf) as usize, ((ins >> 4) & 0xf) as usize),
+                _ => {
+                    error!("Unimplemented instruction: {:x}", ins);
+                    panic!();
+                }
             },
             0xf => match ins & 0xff {
+                0x29 => OpCode::LDF(((ins >> 8) & 0xf) as usize),
+                0x33 => OpCode::LDB(((ins >> 8) & 0xf) as usize),
                 0x55 => OpCode::LDIV(((ins >> 8) & 0xf) as usize),
                 0x65 => OpCode::LDVI(((ins >> 8) & 0xf) as usize),
                 0x1e => OpCode::ADDI(((ins >> 8) & 0xf) as usize),
                 0x0a => OpCode::LDK(((ins >> 8) & 0xf) as usize),
-                _ => unreachable!(),
+                _ => {
+                    error!("Unimplemented instruction: {:x}", ins);
+                    panic!();
+                }
             },
             0x3 => OpCode::SE(((ins >> 8) & 0xf) as usize, (ins & 0xff) as u8),
             0xc => OpCode::RND(((ins >> 8) & 0xf) as usize, (ins & 0xff) as u8),

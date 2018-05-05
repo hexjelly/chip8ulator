@@ -249,6 +249,38 @@ impl Chip8 {
                 self.stack[self.sp] = self.pc;
                 self.pc = addr as u16;
             }
+            OpCode::LDF(reg) => {
+                // Set I = location of sprite for digit Vx.
+                self.reg_i = (self.reg_v[reg] * 5) as u16;
+            }
+            OpCode::SNE(reg, val) => {
+                // Skip next instruction if Vx != kk.
+                if self.reg_v[reg] != val {
+                    self.pc += 2;
+                }
+            }
+            OpCode::LDB(reg) => {
+                // The interpreter takes the decimal value of Vx, and places the hundreds digit in memory at location in I, the tens digit at location I+1, and the ones digit at location I+2.
+                let val = self.reg_v[reg];
+                self.mem[self.reg_i as usize] = val / 100;
+                self.mem[self.reg_i as usize + 1] = (val / 10) % 10;
+                self.mem[self.reg_i as usize + 2] = (val % 100) % 10;
+            }
+            OpCode::ADDXY(reg_x, reg_y) => {
+                // The values of Vx and Vy are added together. If the result is greater than 8 bits (i.e., > 255,) VF is set to 1, otherwise 0. Only the lowest 8 bits of the result are kept, and stored in Vx.
+                let (val, overflow) = self.reg_v[reg_x].overflowing_add(self.reg_v[reg_y]);
+                self.reg_v[reg_x] = val;
+                self.reg_v[15] = if overflow { 1 } else { 0 };
+            }
+            OpCode::SUBXY(reg_x, reg_y) => {
+                // If Vx > Vy, then VF is set to 1, otherwise 0. Then Vy is subtracted from Vx, and the results stored in Vx.
+                self.reg_v[15] = if self.reg_v[reg_x] >= self.reg_v[reg_y] {
+                    1
+                } else {
+                    0
+                };
+                self.reg_v[reg_x] = self.reg_v[reg_x].wrapping_sub(self.reg_v[reg_y]);
+            }
             _ => {
                 error!("Unimplemented handling of instruction: {:?}", ins);
                 panic!();
